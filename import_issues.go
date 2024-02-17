@@ -14,13 +14,17 @@ import (
 func main() {
 	ctx := context.Background()
 
-	token := "YOUR_GITHUB_TOKEN"
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		fmt.Println("The GITHUB_TOKEN environment variable is not set.")
+		return
+	}
 
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
 
-	csvfile, err := os.Open("tasks.csv")
+	csvfile, err := os.Open("gitgo-sample-tasks.csv")
 	if err != nil {
 		fmt.Println("Error opening the CSV file:", err)
 		return
