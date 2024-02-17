@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
@@ -32,10 +35,19 @@ func main() {
 	defer csvfile.Close()
 
 	r := csv.NewReader(csvfile)
+	var backoff time.Duration = 5
+
 	for {
 		record, err := r.Read()
-		if err != nil {
+		if err == io.EOF {
 			break
+		}
+		if err != nil {
+			fmt.Println("Error reading the CSV file:", err)
+			break
+		}
+		if len(record) < 2 || strings.TrimSpace(record[0]) == "" {
+			continue
 		}
 
 		issueRequest := &github.IssueRequest{
@@ -43,12 +55,25 @@ func main() {
 			Body:  github.String(strings.TrimSpace(record[1])),
 		}
 
-		issue, _, err := client.Issues.Create(ctx, "marcusziade", "vibify", issueRequest)
+		fmt.Printf("Creating issue: %s", strings.TrimSpace(record[0]))
+
+		issue, resp, err := client.Issues.Create(ctx, "marcusziade", "vibify", issueRequest)
 		if err != nil {
-			fmt.Printf("Error creating issue for '%s': %s\n", *issueRequest.Title, err)
+			if resp != nil && resp.StatusCode == http.StatusForbidden {
+				fmt.Printf("\rHit rate limit, backing off for %d seconds\n", backoff)
+				time.Sleep(backoff * time.Second)
+				backoff *= 2
+			} else {
+				fmt.Printf("\rError creating issue for '%s': %s\n", *issueRequest.Title, err)
+			}
 			continue
 		}
+		backoff = 1
+		fmt.Printf("\rSuccessfully created issue '%s': %s\n", *issueRequest.Title, *issue.HTMLURL)
 
-		fmt.Printf("Successfully created issue '%s': %s\n", *issueRequest.Title, *issue.HTMLURL)
+		// Visual loading state for 2 seconds
+		time.Sleep(2 * time.Second)
+		fmt.Println()
 	}
+	fmt.Println("All issues created successfully.")
 }
