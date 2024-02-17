@@ -24,7 +24,7 @@ func main() {
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
 
-	csvfile, err := os.Open("gitgo-sample-tasks.csv")
+	csvfile, err := os.Open("tasks.csv")
 	if err != nil {
 		fmt.Println("Error opening the CSV file:", err)
 		return
